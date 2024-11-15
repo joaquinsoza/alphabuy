@@ -12,7 +12,8 @@ function createBot(apiBot, monitoredChats) {
       "Welcome to the Chat Monitor Bot!\n\n" +
         "Here are the available commands:\n" +
         "1. /add_chat <chat_id> - Add a chat ID to monitor.\n" +
-        "2. /list_chats - List all the chats you are currently monitoring.\n\n" +
+        "2. /list_chats - List all the chats you are currently monitoring.\n" +
+        "3. /remove_chat <chat_id> - Remove a chat ID from monitoring.\n\n" +
         "Use the buttons below for quick actions!",
       { reply_markup: keyboard }
     );
@@ -36,7 +37,7 @@ function createBot(apiBot, monitoredChats) {
 
     if (!monitoredChats[userId].includes(chatId)) {
       monitoredChats[userId].push(chatId);
-      saveMonitoredChats(monitoredChats); // Save to file after updating
+      saveMonitoredChats(monitoredChats);
       await ctx.reply(`Chat ID ${chatId} added. Listening for messages...`);
     } else {
       await ctx.reply(`Chat ID ${chatId} is already being monitored.`);
@@ -61,6 +62,34 @@ function createBot(apiBot, monitoredChats) {
     );
   });
 
+  // Remove Chat Command
+  bot.command("remove_chat", async (ctx) => {
+    const userId = ctx.from.id;
+
+    if (!monitoredChats[userId] || monitoredChats[userId].length === 0) {
+      await ctx.reply("You are not monitoring any chats to remove.");
+      return;
+    }
+
+    const chatId = ctx.message.text.split(" ")[1]; // Extract chat ID from command
+    if (!chatId) {
+      await ctx.reply(
+        "Please specify a chat ID. Example: /remove_chat 1234567890"
+      );
+      return;
+    }
+
+    const index = monitoredChats[userId].indexOf(chatId);
+    if (index > -1) {
+      monitoredChats[userId].splice(index, 1); // Remove the chat ID
+      saveMonitoredChats(monitoredChats); // Save to file after updating
+      await ctx.reply(`Chat ID ${chatId} removed from monitoring.`);
+    } else {
+      await ctx.reply(`Chat ID ${chatId} is not in your monitored list.`);
+    }
+  });
+
+  // Handle Callback Query for Listing Chats
   bot.callbackQuery("list_chats", async (ctx) => {
     const userId = ctx.from.id;
 
