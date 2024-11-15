@@ -1,8 +1,22 @@
-const { Bot } = require("grammy");
+const { Bot, InlineKeyboard } = require("grammy");
 const { saveMonitoredChats } = require("./persistence");
 
 function createBot(apiBot, monitoredChats) {
   const bot = new Bot(apiBot);
+
+  // Start Command (Help Section)
+  bot.command("start", async (ctx) => {
+    const keyboard = new InlineKeyboard().text("📋 List Chats", "list_chats");
+
+    await ctx.reply(
+      "Welcome to the Chat Monitor Bot!\n\n" +
+        "Here are the available commands:\n" +
+        "1. /add_chat <chat_id> - Add a chat ID to monitor.\n" +
+        "2. /list_chats - List all the chats you are currently monitoring.\n\n" +
+        "Use the buttons below for quick actions!",
+      { reply_markup: keyboard }
+    );
+  });
 
   // Add Chat Command
   bot.command("add_chat", async (ctx) => {
@@ -45,6 +59,23 @@ function createBot(apiBot, monitoredChats) {
         userId
       ].join("\n")}`
     );
+  });
+
+  bot.callbackQuery("list_chats", async (ctx) => {
+    const userId = ctx.from.id;
+
+    if (!monitoredChats[userId] || monitoredChats[userId].length === 0) {
+      await ctx.reply(
+        "You are not listening to any chats. Add one with /add_chat <chat_id>"
+      );
+    } else {
+      await ctx.reply(
+        `You are currently monitoring the following chats:\n${monitoredChats[
+          userId
+        ].join("\n")}`
+      );
+    }
+    await ctx.answerCallbackQuery(); // Acknowledge the button press
   });
 
   return bot;

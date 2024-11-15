@@ -1,0 +1,7 @@
+# Rename to config.properties
+[telegram]
+apiId=<api-id>
+apiHash=<api-hash>
+
+[telegram-bot]
+api=<telegram-bot-api>
