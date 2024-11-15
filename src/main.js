@@ -7,44 +7,104 @@ getProp = (bundle, key) => {
 const { TelegramClient } = require("telegram");
 const { StoreSession } = require("telegram/sessions");
 const { NewMessage } = require("telegram/events");
-const { EditedMessage } = require("telegram/events/EditedMessage");
 const input = require("input");
 
+const { Bot } = require("grammy");
+
+// Configuration
 const apiId = getProp("telegram", "apiId");
 const apiHash = getProp("telegram", "apiHash");
-const storeSession = new StoreSession("telegram_session"); // see: https://painor.gitbook.io/gramjs/getting-started/authorization#store-session
+const apiBot = getProp("telegram-bot", "api");
+const storeSession = new StoreSession("telegram_session"); // Persistent session storage
 
+// State to store chat IDs for each user
+const monitoredChats = {};
+
+// Telegram Bot Setup
+const bot = new Bot(apiBot);
+
+// Add Chat Command
+bot.command("add_chat", async (ctx) => {
+  const userId = ctx.from.id;
+
+  if (!monitoredChats[userId]) {
+    monitoredChats[userId] = [];
+  }
+
+  const chatId = ctx.message.text.split(" ")[1]; // Extract chat ID from command
+  if (!chatId) {
+    await ctx.reply("Please specify a chat ID. Example: /add_chat 1234567890");
+    return;
+  }
+
+  monitoredChats[userId].push(chatId);
+  await ctx.reply(`Chat ID ${chatId} added. Listening for messages...`);
+});
+
+// Relay Messages Command
+bot.command("list_chats", async (ctx) => {
+  const userId = ctx.from.id;
+
+  if (!monitoredChats[userId] || monitoredChats[userId].length === 0) {
+    await ctx.reply(
+      "You are not listening to any chats. Add one with /add_chat <chat_id>"
+    );
+    return;
+  }
+
+  await ctx.reply(
+    `You are currently monitoring the following chats:\n${monitoredChats[
+      userId
+    ].join("\n")}`
+  );
+});
+
+// Start the bot
+bot.start();
+
+// Telegram Client Setup
 (async () => {
-  console.log("Loading interactive example...");
+  console.log("Starting Telegram client setup...");
+
   const client = new TelegramClient(storeSession, apiId, apiHash, {
     connectionRetries: 5,
   });
-  await client.start({
-    phoneNumber: async () => await input.text("Please enter your number: "),
-    password: async () => await input.text("Please enter your password: "),
-    phoneCode: async () =>
-      await input.text("Please enter the code you received: "),
-    onError: (err) => console.log(err),
-  });
-  console.log("You should now be connected.");
-  client.session.save(); // Save the session to avoid logging in again
 
-  async function eventPrint(event) {
-    // see 'node_modules/telegram/tl/custom/message.d.ts'
-    const message = event.message;
-    const isNew = message.editDate === undefined;
-    const text = message.text;
-    const date = new Date(message.date * 1000);
+  try {
+    // User Interaction for Setup
+    await client.start({
+      phoneNumber: async () => await input.text("Please enter your number: "),
+      password: async () => await input.text("Please enter your password: "),
+      phoneCode: async () =>
+        await input.text("Please enter the code you received: "),
+      onError: (err) => console.log("Error during login:", err),
+    });
 
-    console.log(`The message is ${isNew ? "new" : "an update"}`);
-    console.log(`The text is: ${text}`);
-    console.log(`The date is: ${date}`);
+    console.log("Successfully connected to Telegram!");
+    client.session.save(); // Save the session for reuse
+
+    // Listen for Messages in Added Chats
+    async function handleMessage(event) {
+      const message = event.message;
+      const chatId = String(message.chatId);
+      const text = message.text || "Non-text message received";
+
+      // Relay messages only from monitored chats
+      for (const [userId, chatIds] of Object.entries(monitoredChats)) {
+        if (chatIds.includes(chatId)) {
+          await bot.api.sendMessage(
+            userId,
+            `Message from chat ${chatId}: ${text}`
+          );
+        }
+      }
+    }
+
+    // Add Event Handler for All Monitored Chats
+    client.addEventHandler(handleMessage, new NewMessage());
+
+    console.log("Bot is ready to add and monitor chats!");
+  } catch (err) {
+    console.error("Failed to connect to Telegram:", err);
   }
-
-  // to get the chatId:
-  // option 1: open telegram on a web browser, go to the chat, and look the url in the address bar
-  // option 2: open telegram app, copy link to any message, it should be something like: https://t.me/c/1234567890/12345, the first number after "/c/" is the chatId
-  const chatId = 5301381409;
-  client.addEventHandler(eventPrint, new NewMessage({ chats: [chatId] }));
-  client.addEventHandler(eventPrint, new EditedMessage({ chats: [chatId] }));
 })();

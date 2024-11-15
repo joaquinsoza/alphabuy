@@ -8,6 +8,7 @@
     "start": "node src/main.js"
   },
   "dependencies": {
+    "grammy": "^1.31.3",
     "input": "^1.0.1",
     "properties-reader": "^2.3.0",
     "telegram": "^2.26.6"
