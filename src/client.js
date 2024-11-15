@@ -1,6 +1,6 @@
 const { TelegramClient } = require("telegram");
-const { StoreSession } = require("telegram/sessions");
 const { NewMessage } = require("telegram/events");
+const { extractSolanaAddress } = require("./solana");
 
 async function getChatName(client, chatId) {
   try {
@@ -41,12 +41,22 @@ async function setupClient(
     const chatId = String(message.chatId);
     const text = message.text || "Non-text message received";
 
+    // Process the message for each monitored chat
     for (const [userId, chatList] of Object.entries(monitoredChats)) {
       const monitoredChat = chatList.find((chat) => chat.id === chatId);
       if (monitoredChat) {
+        // Attempt to extract a Solana address from the message
+        const solanaAddress = extractSolanaAddress(text);
+
+        // If no address is found, ignore the message
+        if (!solanaAddress) {
+          return;
+        }
+
         await bot.api.sendMessage(
           userId,
-          `Message from ${monitoredChat.name} (ID: ${chatId}): ${text}`
+          `Message from ${monitoredChat.name} (ID: ${chatId}):\n` +
+            `Found Solana Token Address: ${solanaAddress}\n`
         );
       }
     }
