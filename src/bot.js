@@ -1,8 +1,11 @@
 const { Bot, InlineKeyboard } = require("grammy");
 const { saveMonitoredChats } = require("./persistence");
+const { getChatName } = require("./client");
 
 function createBot(apiBot, monitoredChats) {
   const bot = new Bot(apiBot);
+
+  bot.telegramClient = null; // Placeholder for the Telegram client
 
   // Start Command (Help Section)
   bot.command("start", async (ctx) => {
@@ -22,12 +25,9 @@ function createBot(apiBot, monitoredChats) {
   // Add Chat Command
   bot.command("add_chat", async (ctx) => {
     const userId = ctx.from.id;
+    if (!monitoredChats[userId]) monitoredChats[userId] = [];
 
-    if (!monitoredChats[userId]) {
-      monitoredChats[userId] = [];
-    }
-
-    const chatId = ctx.message.text.split(" ")[1]; // Extract chat ID from command
+    const chatId = ctx.message.text.split(" ")[1]; // Extract chat ID
     if (!chatId) {
       await ctx.reply(
         "Please specify a chat ID. Example: /add_chat 1234567890"
@@ -35,12 +35,28 @@ function createBot(apiBot, monitoredChats) {
       return;
     }
 
-    if (!monitoredChats[userId].includes(chatId)) {
-      monitoredChats[userId].push(chatId);
+    const existingChat = monitoredChats[userId].find(
+      (chat) => chat.id === chatId
+    );
+    if (existingChat) {
+      await ctx.reply(
+        `Chat ID ${chatId} (${existingChat.name}) is already monitored.`
+      );
+      return;
+    }
+
+    if (!bot.telegramClient) {
+      await ctx.reply("Telegram client not ready yet. Please try again later.");
+      return;
+    }
+
+    try {
+      const chatName = await getChatName(bot.telegramClient, chatId);
+      monitoredChats[userId].push({ id: chatId, name: chatName });
       saveMonitoredChats(monitoredChats);
-      await ctx.reply(`Chat ID ${chatId} added. Listening for messages...`);
-    } else {
-      await ctx.reply(`Chat ID ${chatId} is already being monitored.`);
+      await ctx.reply(`Chat ID ${chatId} (${chatName}) added.`);
+    } catch (err) {
+      await ctx.reply("Failed to add the chat. Please check the chat ID.");
     }
   });
 
@@ -49,17 +65,14 @@ function createBot(apiBot, monitoredChats) {
     const userId = ctx.from.id;
 
     if (!monitoredChats[userId] || monitoredChats[userId].length === 0) {
-      await ctx.reply(
-        "You are not listening to any chats. Add one with /add_chat <chat_id>"
-      );
+      await ctx.reply("No monitored chats. Add one with /add_chat <chat_id>.");
       return;
     }
 
-    await ctx.reply(
-      `You are currently monitoring the following chats:\n${monitoredChats[
-        userId
-      ].join("\n")}`
-    );
+    const chatDetails = monitoredChats[userId]
+      .map((chat) => `${chat.name} (ID: ${chat.id})`)
+      .join("\n");
+    await ctx.reply(`Monitored chats:\n${chatDetails}`);
   });
 
   // Remove Chat Command
@@ -79,11 +92,16 @@ function createBot(apiBot, monitoredChats) {
       return;
     }
 
-    const index = monitoredChats[userId].indexOf(chatId);
+    // Find the index of the chat with the given ID
+    const index = monitoredChats[userId].findIndex(
+      (chat) => chat.id === chatId
+    );
     if (index > -1) {
-      monitoredChats[userId].splice(index, 1); // Remove the chat ID
+      const removedChat = monitoredChats[userId].splice(index, 1)[0]; // Remove the chat
       saveMonitoredChats(monitoredChats); // Save to file after updating
-      await ctx.reply(`Chat ID ${chatId} removed from monitoring.`);
+      await ctx.reply(
+        `Chat "${removedChat.name}" (ID: ${chatId}) removed from monitoring.`
+      );
     } else {
       await ctx.reply(`Chat ID ${chatId} is not in your monitored list.`);
     }
@@ -94,16 +112,14 @@ function createBot(apiBot, monitoredChats) {
     const userId = ctx.from.id;
 
     if (!monitoredChats[userId] || monitoredChats[userId].length === 0) {
-      await ctx.reply(
-        "You are not listening to any chats. Add one with /add_chat <chat_id>"
-      );
-    } else {
-      await ctx.reply(
-        `You are currently monitoring the following chats:\n${monitoredChats[
-          userId
-        ].join("\n")}`
-      );
+      await ctx.reply("No monitored chats. Add one with /add_chat <chat_id>.");
+      return;
     }
+
+    const chatDetails = monitoredChats[userId]
+      .map((chat) => `${chat.name} (ID: ${chat.id})`)
+      .join("\n");
+    await ctx.reply(`Monitored chats:\n${chatDetails}`);
     await ctx.answerCallbackQuery(); // Acknowledge the button press
   });
 

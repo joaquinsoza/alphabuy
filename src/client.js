@@ -2,6 +2,16 @@ const { TelegramClient } = require("telegram");
 const { StoreSession } = require("telegram/sessions");
 const { NewMessage } = require("telegram/events");
 
+async function getChatName(client, chatId) {
+  try {
+    const entity = await client.getEntity(chatId);
+    return entity.title || entity.username || "Unknown";
+  } catch (err) {
+    console.error(`Failed to fetch chat name for ID ${chatId}:`, err);
+    return "Unknown";
+  }
+}
+
 async function setupClient(
   apiId,
   apiHash,
@@ -31,12 +41,12 @@ async function setupClient(
     const chatId = String(message.chatId);
     const text = message.text || "Non-text message received";
 
-    // Relay messages only from monitored chats
-    for (const [userId, chatIds] of Object.entries(monitoredChats)) {
-      if (chatIds.includes(chatId)) {
+    for (const [userId, chatList] of Object.entries(monitoredChats)) {
+      const monitoredChat = chatList.find((chat) => chat.id === chatId);
+      if (monitoredChat) {
         await bot.api.sendMessage(
           userId,
-          `Message from chat ${chatId}: ${text}`
+          `Message from ${monitoredChat.name} (ID: ${chatId}): ${text}`
         );
       }
     }
@@ -45,4 +55,4 @@ async function setupClient(
   return client;
 }
 
-module.exports = setupClient;
+module.exports = { setupClient, getChatName };
