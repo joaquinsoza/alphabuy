@@ -1,0 +1,15 @@
+{
+  "name": "alpha-buy",
+  "version": "1.0.0",
+  "main": "src/main.js",
+  "author": "coderipper",
+  "license": "MIT",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "input": "^1.0.1",
+    "properties-reader": "^2.3.0",
+    "telegram": "^2.26.6"
+  }
+}
