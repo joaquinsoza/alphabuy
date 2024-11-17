@@ -1,6 +1,7 @@
 const { Bot, InlineKeyboard } = require("grammy");
 const { saveMonitoredChats } = require("./persistence");
 const { getChatName } = require("./client");
+const { fetchReport } = require("./utils");
 
 function createBot(apiBot, monitoredChats) {
   const bot = new Bot(apiBot);
@@ -123,7 +124,33 @@ function createBot(apiBot, monitoredChats) {
     await ctx.answerCallbackQuery(); // Acknowledge the button press
   });
 
+  bot.callbackQuery(/^get_report_(.+)$/, async (ctx) => {
+    const solanaAddress = ctx.match[1]; // Extract the Solana address from the button's data
+
+    const report = await fetchReport(solanaAddress); // Replace this with your actual function to fetch the report
+    if (!report) {
+      await ctx.reply("Unable to generate the report for this token.");
+      return;
+    }
+
+    const reportMessage = `
+  <b>📋 Detailed Report</b>
+  <b>Name:</b> ${report.name || "Unknown"}
+  <b>Symbol:</b> ${report.symbol || "Unknown"}
+  <b>Mint Address:</b> ${solanaAddress}
+  <b>Total Supply:</b> ${report.supply || "N/A"}
+  <b>Holders:</b> ${report.holders || "N/A"}
+  <b>Rug Risk:</b> ${report.rugRisk || "Unknown"}
+  <b>Additional Info:</b> ${
+    report.notes || "No additional information available."
+  }
+    `;
+
+    await ctx.reply(reportMessage, { parse_mode: "HTML" });
+    await ctx.answerCallbackQuery(); // Acknowledge the button press
+  });
+
   return bot;
 }
 
-module.exports = createBot;
+module.exports = { createBot };

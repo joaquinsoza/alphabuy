@@ -1,7 +1,7 @@
 const input = require("input");
 const { apiId, apiHash, apiBot } = require("./config");
 const { loadMonitoredChats } = require("./persistence");
-const createBot = require("./bot");
+const { createBot } = require("./bot");
 const { setupClient } = require("./client");
 const { StoreSession } = require("telegram/sessions");
 
@@ -11,7 +11,21 @@ const monitoredChats = loadMonitoredChats();
 // Initialize the bot
 const bot = createBot(apiBot, monitoredChats);
 bot.start(); // Start the bot immediately
-console.log("Bot is running...");
+console.log(`
+  █████╗ ██╗     ██████╗ ██╗  ██╗ █████╗ 
+ ██╔══██╗██║     ██╔══██╗██║  ██║██╔══██╗
+ ███████║██║     ██████╔╝███████║███████║
+ ██╔══██║██║     ██╔═══╝ ██╔══██║██╔══██║
+ ██║  ██║███████╗██║     ██║  ██║██║  ██║
+ ╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝
+
+ ██████╗ ██╗   ██╗██╗   ██╗
+ ██╔══██╗██║   ██║╚██╗ ██╔╝
+ ██████╔╝██║   ██║ ╚████╔╝ 
+ ██╔══██╗██║   ██║  ╚██╔╝  
+ ██████╔╝╚██████╔╝   ██║   
+ ╚═════╝  ╚═════╝    ╚═╝   
+`);
 
 // Set up the Telegram client
 const storeSession = new StoreSession("telegram_session");

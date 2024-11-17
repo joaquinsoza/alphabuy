@@ -1,3 +1,5 @@
+const { InlineKeyboard } = require("grammy");
+const { fetchReport, fetchToken } = require("./utils");
 // Base58 regex for Solana token addresses (44 characters, valid base58 chars)
 const SOLANA_ADDRESS_REGEX = /\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/;
 
@@ -11,6 +13,109 @@ function extractSolanaAddress(text) {
   return matches ? matches[0] : null;
 }
 
+async function handleMessage(bot, text, userId, monitoredChat) {
+  const solanaAddress = extractSolanaAddress(text);
+
+  // If no address is found, ignore the message
+  if (!solanaAddress) {
+    return;
+  }
+
+  // Fetch token details
+  const token = await fetchToken(solanaAddress);
+  if (!token) {
+    await bot.api.sendMessage(userId, "Unable to fetch token details.");
+    return;
+  }
+
+  // Construct the main message
+  let message = `
+<b>${monitoredChat.name}</b>
+
+<b>Token Information:</b>
+  <b>Address:</b> ${solanaAddress}
+  <b>Name:</b> ${token.name || "Unknown"}
+  <b>Symbol:</b> ${token.symbol || "Unknown"}
+
+<b>Pricing:</b>
+  <b>Price (USD):</b> $${token.priceUsd || "N/A"}
+  <b>Price (Native):</b> ${token.priceNative || "N/A"} SOL
+  <b>Price Change (h6):</b> ${token.priceChange?.h6 || 0}%
+
+<b>Liquidity & Volume:</b>
+  <b>Liquidity (USD):</b> $${token.liquidity?.usd || "N/A"}
+  <b>Volume (h6):</b> $${token.volume?.h6 || "N/A"}
+
+<b>Additional Information:</b>
+  <b>Pair Created:</b> ${new Date(token.pairCreatedAt).toLocaleString()}
+  <b>Market Cap:</b> $${token.marketCap || "N/A"}
+  <b>FDV:</b> $${token.fdv || "N/A"}
+  `;
+
+  if (token.info?.websites) {
+    token.info.websites.forEach((website) => {
+      message += `
+<a href="${website.url}">${website.label}</a>
+      `;
+    });
+  }
+
+  if (token.info?.socials) {
+    token.info.socials.forEach((social) => {
+      message += `
+<a href="${social.url}">${social.type}</a>
+      `;
+    });
+  }
+
+  // Add the buttons
+  const keyboard = new InlineKeyboard()
+    .url(
+      "Buy 0.1 SOL",
+      `https://raydium.io/swap/?inputMint=sol&outputMint=${solanaAddress}`
+    )
+    .url("DexScreener", token.dexscreener)
+    .row()
+    .url(
+      "Buy 0.3 SOL",
+      `https://raydium.io/swap/?inputMint=sol&outputMint=${solanaAddress}`
+    )
+    .url(
+      "Raydium",
+      `https://raydium.io/swap/?inputMint=sol&outputMint=${solanaAddress}`
+    )
+
+    .row()
+    .url(
+      "Buy 0.5 SOL",
+      `https://raydium.io/swap/?inputMint=sol&outputMint=${solanaAddress}`
+    )
+    .text("Get Report", `get_report_${solanaAddress}`)
+    .row()
+    .url(
+      "Buy 1 SOL",
+      `https://raydium.io/swap/?inputMint=sol&outputMint=${solanaAddress}`
+    )
+    .text("Positions", `get_positions`);
+  // Send the main message
+  if (token.info?.openGraph || token.info?.imageUrl) {
+    await bot.api.sendPhoto(
+      userId,
+      token.info?.openGraph || token.info?.imageUrl || null,
+      {
+        caption: message,
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+      }
+    );
+  } else {
+    await bot.api.sendMessage(userId, message, {
+      parse_mode: "HTML",
+      reply_markup: keyboard,
+    });
+  }
+}
+
 module.exports = {
-  extractSolanaAddress,
+  handleMessage,
 };
