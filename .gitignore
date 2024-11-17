@@ -1,4 +1,5 @@
 /node_modules
+/dist
 /telegram_session
 config.properties
 monitoredChats.json

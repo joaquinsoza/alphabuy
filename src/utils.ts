@@ -1,6 +1,39 @@
-const axios = require("axios");
+import axios from "axios";
 
-async function fetchReport(address) {
+export interface Report {
+  supply: number;
+  decimals: number;
+  name: string;
+  symbol: string;
+  image: string;
+  uri: any;
+  mutable: boolean;
+  topHolders: any[];
+  risks: any[];
+  score: number;
+  markets: any[];
+  rugged: boolean;
+}
+
+export interface TokenPair {
+  dexId: string;
+  dexscreener: string;
+  pairAddress: string;
+  name: string;
+  symbol: string;
+  priceNative: number;
+  priceUsd: number;
+  txns: any;
+  volume: any;
+  priceChange: any;
+  liquidity: any;
+  fdv: number;
+  marketCap: number;
+  pairCreatedAt: string;
+  info: any;
+}
+
+export async function fetchReport(address: string): Promise<Report> {
   const url = `https://api.rugcheck.xyz/v1/tokens/${address}/report`;
   const response = await axios.get(url);
   return {
@@ -19,19 +52,16 @@ async function fetchReport(address) {
   };
 }
 
-async function fetchToken(address) {
+export async function fetchToken(address: string): Promise<TokenPair> {
   const url = `https://api.dexscreener.com/latest/dex/tokens/${address}`;
   const response = await axios.get(url);
 
-  // TODO: If there are multiple pairs there could be an arbitrage opportunity
-  // For now i will just consider raydium and return one pair info
-
   const raydiumPairs = response.data.pairs.filter(
-    (pair) => pair.dexId === "raydium"
+    (pair: any) => pair.dexId === "raydium"
   );
 
   const raydiumSolPair = raydiumPairs.find(
-    (pair) =>
+    (pair: any) =>
       pair.quoteToken.address === "So11111111111111111111111111111111111111112"
   );
 
@@ -53,8 +83,3 @@ async function fetchToken(address) {
     info: raydiumSolPair.info,
   };
 }
-
-module.exports = {
-  fetchReport,
-  fetchToken,
-};

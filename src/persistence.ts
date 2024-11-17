@@ -1,13 +1,14 @@
-const fs = require("fs");
-const path = require("path");
+import * as fs from "fs";
+import * as path from "path";
+import { MonitoredChats } from "./bot";
 
 const persistenceFilePath = path.resolve(__dirname, "../monitoredChats.json");
 
-function loadMonitoredChats() {
+export function loadMonitoredChats(): MonitoredChats {
   if (fs.existsSync(persistenceFilePath)) {
     try {
       const data = fs.readFileSync(persistenceFilePath, "utf-8");
-      return JSON.parse(data);
+      return JSON.parse(data) as MonitoredChats;
     } catch (err) {
       console.error("Failed to load monitored chats:", err);
     }
@@ -15,7 +16,7 @@ function loadMonitoredChats() {
   return {};
 }
 
-function saveMonitoredChats(monitoredChats) {
+export function saveMonitoredChats(monitoredChats: MonitoredChats): void {
   try {
     fs.writeFileSync(
       persistenceFilePath,
@@ -25,8 +26,3 @@ function saveMonitoredChats(monitoredChats) {
     console.error("Failed to save monitored chats:", err);
   }
 }
-
-module.exports = {
-  loadMonitoredChats,
-  saveMonitoredChats,
-};

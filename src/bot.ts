@@ -1,15 +1,26 @@
-const { Bot, InlineKeyboard } = require("grammy");
-const { saveMonitoredChats } = require("./persistence");
-const { getChatName } = require("./client");
-const { fetchReport } = require("./utils");
+import { Bot, InlineKeyboard, Context } from "grammy";
+import { saveMonitoredChats } from "./persistence";
+import { getChatName } from "./client";
+import { fetchReport } from "./utils";
 
-function createBot(apiBot, monitoredChats) {
-  const bot = new Bot(apiBot);
+export interface MonitoredChat {
+  id: string;
+  name: string;
+}
 
-  bot.telegramClient = null; // Placeholder for the Telegram client
+export interface MonitoredChats {
+  [userId: string]: MonitoredChat[];
+}
+
+export interface ExtendedBot extends Bot {
+  telegramClient?: any; // Replace 'any' with the actual type if known
+}
+
+export function createBot(apiBot: string, monitoredChats: MonitoredChats) {
+  const bot: ExtendedBot = new Bot(apiBot);
 
   // Start Command (Help Section)
-  bot.command("start", async (ctx) => {
+  bot.command("start", async (ctx: Context) => {
     const keyboard = new InlineKeyboard().text("📋 List Chats", "list_chats");
 
     await ctx.reply(
@@ -24,11 +35,13 @@ function createBot(apiBot, monitoredChats) {
   });
 
   // Add Chat Command
-  bot.command("add_chat", async (ctx) => {
-    const userId = ctx.from.id;
+  bot.command("add_chat", async (ctx: Context) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
     if (!monitoredChats[userId]) monitoredChats[userId] = [];
 
-    const chatId = ctx.message.text.split(" ")[1]; // Extract chat ID
+    const chatId = ctx.message?.text?.split(" ")[1]; // Extract chat ID
     if (!chatId) {
       await ctx.reply(
         "Please specify a chat ID. Example: /add_chat 1234567890"
@@ -62,8 +75,9 @@ function createBot(apiBot, monitoredChats) {
   });
 
   // List Chats Command
-  bot.command("list_chats", async (ctx) => {
-    const userId = ctx.from.id;
+  bot.command("list_chats", async (ctx: Context) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
 
     if (!monitoredChats[userId] || monitoredChats[userId].length === 0) {
       await ctx.reply("No monitored chats. Add one with /add_chat <chat_id>.");
@@ -77,15 +91,16 @@ function createBot(apiBot, monitoredChats) {
   });
 
   // Remove Chat Command
-  bot.command("remove_chat", async (ctx) => {
-    const userId = ctx.from.id;
+  bot.command("remove_chat", async (ctx: Context) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
 
     if (!monitoredChats[userId] || monitoredChats[userId].length === 0) {
       await ctx.reply("You are not monitoring any chats to remove.");
       return;
     }
 
-    const chatId = ctx.message.text.split(" ")[1]; // Extract chat ID from command
+    const chatId = ctx.message?.text?.split(" ")[1]; // Extract chat ID from command
     if (!chatId) {
       await ctx.reply(
         "Please specify a chat ID. Example: /remove_chat 1234567890"
@@ -109,8 +124,9 @@ function createBot(apiBot, monitoredChats) {
   });
 
   // Handle Callback Query for Listing Chats
-  bot.callbackQuery("list_chats", async (ctx) => {
-    const userId = ctx.from.id;
+  bot.callbackQuery("list_chats", async (ctx: Context) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
 
     if (!monitoredChats[userId] || monitoredChats[userId].length === 0) {
       await ctx.reply("No monitored chats. Add one with /add_chat <chat_id>.");
@@ -124,7 +140,8 @@ function createBot(apiBot, monitoredChats) {
     await ctx.answerCallbackQuery(); // Acknowledge the button press
   });
 
-  bot.callbackQuery(/^get_report_(.+)$/, async (ctx) => {
+  bot.callbackQuery(/^get_report_(.+)$/, async (ctx: Context) => {
+    if (ctx.match === undefined) return;
     const solanaAddress = ctx.match[1]; // Extract the Solana address from the button's data
 
     const report = await fetchReport(solanaAddress); // Replace this with your actual function to fetch the report
@@ -152,5 +169,3 @@ function createBot(apiBot, monitoredChats) {
 
   return bot;
 }
-
-module.exports = { createBot };

@@ -1,5 +1,6 @@
-const { InlineKeyboard } = require("grammy");
-const { fetchReport, fetchToken } = require("./utils");
+import { InlineKeyboard } from "grammy";
+import { fetchToken, TokenPair } from "./utils";
+
 // Base58 regex for Solana token addresses (44 characters, valid base58 chars)
 const SOLANA_ADDRESS_REGEX = /\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/;
 
@@ -8,12 +9,17 @@ const SOLANA_ADDRESS_REGEX = /\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/;
  * @param {string} text - The text to scan for a Solana address.
  * @returns {string|null} - The found address, or null if none exists.
  */
-function extractSolanaAddress(text) {
+function extractSolanaAddress(text: string): string | null {
   const matches = text.match(SOLANA_ADDRESS_REGEX);
   return matches ? matches[0] : null;
 }
 
-async function handleMessage(bot, text, userId, monitoredChat) {
+async function handleMessage(
+  bot: any,
+  text: string,
+  userId: number,
+  monitoredChat: { name: string }
+): Promise<void> {
   const solanaAddress = extractSolanaAddress(text);
 
   // If no address is found, ignore the message
@@ -22,7 +28,7 @@ async function handleMessage(bot, text, userId, monitoredChat) {
   }
 
   // Fetch token details
-  const token = await fetchToken(solanaAddress);
+  const token: TokenPair | null = await fetchToken(solanaAddress);
   if (!token) {
     await bot.api.sendMessage(userId, "Unable to fetch token details.");
     return;
@@ -47,13 +53,13 @@ async function handleMessage(bot, text, userId, monitoredChat) {
   <b>Volume (h6):</b> $${token.volume?.h6 || "N/A"}
 
 <b>Additional Information:</b>
-  <b>Pair Created:</b> ${new Date(token.pairCreatedAt).toLocaleString()}
+  <b>Pair Created:</b> ${new Date(token.pairCreatedAt || "").toLocaleString()}
   <b>Market Cap:</b> $${token.marketCap || "N/A"}
   <b>FDV:</b> $${token.fdv || "N/A"}
   `;
 
   if (token.info?.websites) {
-    token.info.websites.forEach((website) => {
+    token.info.websites.forEach((website: { url: string; label: string }) => {
       message += `
 <a href="${website.url}">${website.label}</a>
       `;
@@ -61,7 +67,7 @@ async function handleMessage(bot, text, userId, monitoredChat) {
   }
 
   if (token.info?.socials) {
-    token.info.socials.forEach((social) => {
+    token.info.socials.forEach((social: { url: string; type: string }) => {
       message += `
 <a href="${social.url}">${social.type}</a>
       `;
@@ -84,7 +90,6 @@ async function handleMessage(bot, text, userId, monitoredChat) {
       "Raydium",
       `https://raydium.io/swap/?inputMint=sol&outputMint=${solanaAddress}`
     )
-
     .row()
     .url(
       "Buy 0.5 SOL",
@@ -97,6 +102,7 @@ async function handleMessage(bot, text, userId, monitoredChat) {
       `https://raydium.io/swap/?inputMint=sol&outputMint=${solanaAddress}`
     )
     .text("Positions", `get_positions`);
+
   // Send the main message
   if (token.info?.openGraph || token.info?.imageUrl) {
     await bot.api.sendPhoto(
@@ -116,6 +122,4 @@ async function handleMessage(bot, text, userId, monitoredChat) {
   }
 }
 
-module.exports = {
-  handleMessage,
-};
+export { handleMessage };
