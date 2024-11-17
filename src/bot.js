@@ -128,6 +128,7 @@ function createBot(apiBot, monitoredChats) {
     const solanaAddress = ctx.match[1]; // Extract the Solana address from the button's data
 
     const report = await fetchReport(solanaAddress); // Replace this with your actual function to fetch the report
+    console.log("🚀 « report:", report);
     if (!report) {
       await ctx.reply("Unable to generate the report for this token.");
       return;
@@ -135,15 +136,14 @@ function createBot(apiBot, monitoredChats) {
 
     const reportMessage = `
   <b>📋 Detailed Report</b>
-  <b>Name:</b> ${report.name || "Unknown"}
   <b>Symbol:</b> ${report.symbol || "Unknown"}
-  <b>Mint Address:</b> ${solanaAddress}
+  <b>Description:</b> ${report.uri.description || "Unknown"}
+  <b>Score:</b> ${report.score || "Unknown"}
   <b>Total Supply:</b> ${report.supply || "N/A"}
-  <b>Holders:</b> ${report.holders || "N/A"}
-  <b>Rug Risk:</b> ${report.rugRisk || "Unknown"}
-  <b>Additional Info:</b> ${
-    report.notes || "No additional information available."
-  }
+  <b>Mutable:</b> ${report.mutable || "N/A"}
+  <b>Top Holders:</b> ${report.topHolders || "N/A"}
+  <b>Risks:</b> ${report.risks || "Unknown"}
+  <b>Rugged:</b> ${String(report.rugged) || "Unknown"}
     `;
 
     await ctx.reply(reportMessage, { parse_mode: "HTML" });
