@@ -1,4 +1,5 @@
 import axios from "axios";
+import { NATIVE_MINT } from "@solana/spl-token";
 
 export interface Report {
   supply: number;
@@ -61,8 +62,7 @@ export async function fetchToken(address: string): Promise<TokenPair> {
   );
 
   const raydiumSolPair = raydiumPairs.find(
-    (pair: any) =>
-      pair.quoteToken.address === "So11111111111111111111111111111111111111112"
+    (pair: any) => pair.quoteToken.address === NATIVE_MINT.toBase58()
   );
 
   return {

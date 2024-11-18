@@ -2,6 +2,9 @@ import { Bot, InlineKeyboard, Context } from "grammy";
 import { saveMonitoredChats } from "./persistence";
 import { getChatName } from "./client";
 import { fetchReport } from "./utils";
+import { apiSwap } from "./raydium";
+import { Api, TelegramClient } from "telegram";
+import { NATIVE_MINT } from "@solana/spl-token";
 
 export interface MonitoredChat {
   id: string;
@@ -13,11 +16,31 @@ export interface MonitoredChats {
 }
 
 export interface ExtendedBot extends Bot {
-  telegramClient?: any; // Replace 'any' with the actual type if known
+  telegramClient?: TelegramClient;
+  clientMeId?: Api.long;
 }
 
 export function createBot(apiBot: string, monitoredChats: MonitoredChats) {
   const bot: ExtendedBot = new Bot(apiBot);
+
+  // Middleware to restrict access to the client only
+  bot.use(async (ctx, next) => {
+    if (!bot.clientMeId) {
+      await ctx.reply(
+        "⚠️ Bot configuration is incomplete. Please set up the bot properly and try again."
+      );
+      return;
+    }
+
+    if (ctx.from?.id !== parseInt(bot.clientMeId.toString())) {
+      await ctx.reply(
+        "❌ Unauthorized access. You are not allowed to use this bot."
+      );
+      return;
+    }
+
+    await next();
+  });
 
   // Start Command (Help Section)
   bot.command("start", async (ctx: Context) => {
@@ -164,6 +187,51 @@ export function createBot(apiBot: string, monitoredChats: MonitoredChats) {
     `;
 
     await ctx.reply(reportMessage, { parse_mode: "HTML" });
+    await ctx.answerCallbackQuery(); // Acknowledge the button press
+  });
+
+  bot.callbackQuery(/^buy_(.+)_(.+)$/, async (ctx: Context) => {
+    if (ctx.match === undefined) return;
+    const amount = ctx.match[1];
+    const solanaAddress = ctx.match[2];
+
+    if (!amount || !solanaAddress) {
+      await ctx.reply("Invalid buy request.");
+      await ctx.answerCallbackQuery(); // Acknowledge the button press
+      return;
+    }
+
+    try {
+      const swapAmount = parseFloat(amount) * 10 ** 9; // Convert SOL to lamports (1 SOL = 1e9 lamports)
+
+      // Execute the swap
+      const result = await apiSwap({
+        inputMint: NATIVE_MINT.toBase58(), // Native SOL mint
+        outputMint: solanaAddress,
+        amount: swapAmount,
+        slippage: 2, // 0.5% slippage
+      });
+
+      if (result?.status !== "success") {
+        let message = `
+<b>❌ ${result.reason}.</b>
+      `;
+
+        await ctx.reply(message, { parse_mode: "HTML" });
+        return;
+      }
+
+      let message = `
+<b>✅ Successfully bought ${amount} SOL!</b>
+<a href="https://solscan.io/tx/${result?.txId}">View on Solscan</a>
+`;
+
+      await ctx.reply(message, { parse_mode: "HTML" });
+    } catch (error) {
+      console.error("Swap error:", error);
+      await ctx.reply("❌ Failed to complete the swap. Please try again.");
+    }
+
     await ctx.answerCallbackQuery(); // Acknowledge the button press
   });
 

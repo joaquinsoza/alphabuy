@@ -76,31 +76,19 @@ async function handleMessage(
 
   // Add the buttons
   const keyboard = new InlineKeyboard()
-    .url(
-      "Buy 0.1 SOL",
-      `https://raydium.io/swap/?inputMint=sol&outputMint=${solanaAddress}`
-    )
+    .text("Buy 0.1 SOL", `buy_0.1_${solanaAddress}`)
     .url("DexScreener", token.dexscreener)
     .row()
-    .url(
-      "Buy 0.3 SOL",
-      `https://raydium.io/swap/?inputMint=sol&outputMint=${solanaAddress}`
-    )
+    .text("Buy 0.3 SOL", `buy_0.3_${solanaAddress}`)
     .url(
       "Raydium",
       `https://raydium.io/swap/?inputMint=sol&outputMint=${solanaAddress}`
     )
     .row()
-    .url(
-      "Buy 0.5 SOL",
-      `https://raydium.io/swap/?inputMint=sol&outputMint=${solanaAddress}`
-    )
+    .text("Buy 0.5 SOL", `buy_0.5_${solanaAddress}`)
     .text("Get Report", `get_report_${solanaAddress}`)
     .row()
-    .url(
-      "Buy 1 SOL",
-      `https://raydium.io/swap/?inputMint=sol&outputMint=${solanaAddress}`
-    )
+    .text("Buy 1 SOL", `buy_1_${solanaAddress}`)
     .text("Positions", `get_positions`);
 
   // Send the main message

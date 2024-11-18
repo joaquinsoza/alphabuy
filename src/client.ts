@@ -1,7 +1,7 @@
 import { TelegramClient } from "telegram";
 import { NewMessage, NewMessageEvent } from "telegram/events";
 import { handleMessage } from "./solana";
-import { MonitoredChats } from "./bot";
+import { ExtendedBot, MonitoredChats } from "./bot";
 import { Theme } from "@inquirer/core";
 import { PartialDeep, Context } from "@inquirer/type";
 
@@ -43,7 +43,7 @@ async function setupClient(
     ): Promise<string> & { cancel: () => void };
     (arg0: { message: string }): string | PromiseLike<string>;
   },
-  bot: any,
+  bot: ExtendedBot,
   monitoredChats: MonitoredChats
 ): Promise<TelegramClient> {
   const client = new TelegramClient(storeSession, apiId, apiHash, {
@@ -62,6 +62,9 @@ async function setupClient(
 
   console.log("Successfully connected to Telegram!");
   client.session.save(); // Save the session for reuse
+
+  const me = await client.getMe();
+  bot.clientMeId = me.id;
 
   // Listen for Messages in Added Chats
   client.addEventHandler(async (event: NewMessageEvent) => {
