@@ -5,3 +5,7 @@ apiHash=<api-hash>
 
 [telegram-bot]
 api=<telegram-bot-api>
+
+[solana]
+key=<wallet-private-key>
+rpc=<your-rpc-provider>
