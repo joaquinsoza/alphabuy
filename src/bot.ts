@@ -251,7 +251,7 @@ export function createBot(apiBot: string, monitoredChats: MonitoredChats) {
         inputMint: NATIVE_MINT.toBase58(), // Native SOL mint
         outputMint: solanaAddress,
         amount: swapAmount,
-        slippage: 2, // 0.5% slippage
+        slippage: 8, // 0.5% slippage
       });
 
       if (result?.status !== "success") {
@@ -327,7 +327,7 @@ Balance: ${position.amount.toFixed(4)}
         );
         keyboard.text(
           `Sell Half`,
-          `sell_${position.rawAmount / 2}_${position.mintAddress}`
+          `sell_${Math.floor(position.rawAmount / 2)}_${position.mintAddress}`
         );
         keyboard.url("DexScreener", position.token.dexscreener);
         keyboard.row();
@@ -398,7 +398,7 @@ Balance: ${position.amount.toFixed(4)}
         inputMint: solanaAddress,
         outputMint: NATIVE_MINT.toBase58(),
         amount: swapAmount,
-        slippage: 2, // 0.5% slippage
+        slippage: 8, // 0.5% slippage
       });
 
       if (result?.status !== "success") {
