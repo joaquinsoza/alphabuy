@@ -6,7 +6,7 @@ import {
 import { NATIVE_MINT } from "@solana/spl-token";
 import axios from "axios";
 import { API_URLS } from "@raydium-io/raydium-sdk-v2";
-import { connection, fetchTokenAccountData, owner } from "./config";
+import { config, connection, fetchTokenAccountData, owner } from "./config";
 
 interface SwapCompute {
   id: string;
@@ -77,14 +77,12 @@ export const apiSwap = async ({
   // Fetch balance for the input token or SOL
   const balance = isInputSol
     ? await connection.getBalance(owner.publicKey)
-    : (await connection.getTokenAccountBalance(inputTokenAcc!)).value.uiAmount;
-
-  console.log("🚀 « balance:", balance);
+    : null;
 
   // Convert amount to lamports for comparison
   const requiredAmount = amount;
 
-  if (balance! < requiredAmount) {
+  if (isInputSol && balance! < requiredAmount) {
     console.error("Error: Insufficient balance.");
     return {
       status: "failed",
@@ -169,6 +167,8 @@ export const apiSwap = async ({
         });
       console.log(`${idx} transaction sending..., txId: ${txId}`);
       endTxId = txId;
+      if (config.solanaRpc?.includes("alchemy"))
+        return { status: "success", reason: "success", txId: endTxId };
       const res = await connection.confirmTransaction(
         {
           blockhash,

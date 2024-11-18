@@ -1,10 +1,16 @@
 import { Bot, InlineKeyboard, Context } from "grammy";
 import { saveMonitoredChats } from "./persistence";
 import { getChatName } from "./client";
-import { fetchReport } from "./utils";
+import { fetchReport, fetchToken, TokenPair } from "./utils";
 import { apiSwap } from "./raydium";
 import { Api, TelegramClient } from "telegram";
-import { NATIVE_MINT } from "@solana/spl-token";
+import {
+  AccountLayout,
+  NATIVE_MINT,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
+import { connection, owner } from "./config";
+import { PublicKey } from "@solana/web3.js";
 
 export interface MonitoredChat {
   id: string;
@@ -44,14 +50,18 @@ export function createBot(apiBot: string, monitoredChats: MonitoredChats) {
 
   // Start Command (Help Section)
   bot.command("start", async (ctx: Context) => {
-    const keyboard = new InlineKeyboard().text("📋 List Chats", "list_chats");
+    const keyboard = new InlineKeyboard()
+      .text("📋 List Chats", "list_chats")
+      .row()
+      .text("💰 Wallet", "wallet");
 
     await ctx.reply(
       "Welcome to the Chat Monitor Bot!\n\n" +
         "Here are the available commands:\n" +
-        "1. /add_chat <chat_id> - Add a chat ID to monitor.\n" +
-        "2. /list_chats - List all the chats you are currently monitoring.\n" +
-        "3. /remove_chat <chat_id> - Remove a chat ID from monitoring.\n\n" +
+        "1. /wallet - Show wallet and options\n" +
+        "2. /add_chat <chat_id> - Add a chat ID to monitor.\n" +
+        "3. /list_chats - List all the chats you are currently monitoring.\n" +
+        "4. /remove_chat <chat_id> - Remove a chat ID from monitoring.\n\n" +
         "Use the buttons below for quick actions!",
       { reply_markup: keyboard }
     );
@@ -146,6 +156,37 @@ export function createBot(apiBot: string, monitoredChats: MonitoredChats) {
     }
   });
 
+  bot.command("wallet", async (ctx: Context) => {
+    try {
+      const solBalance = await connection.getBalance(owner.publicKey);
+      const solBalanceInSOL = (solBalance / 10 ** 9).toFixed(4);
+
+      const keyboard = new InlineKeyboard()
+        .text("View Positions", "get_positions")
+        .url(
+          "View Wallet in Solscan",
+          `https://solscan.io/account/${owner.publicKey.toBase58()}`
+        );
+
+      const message = `
+  <b>💰 Wallet Summary</b>
+  <b>SOL Balance:</b> ${solBalanceInSOL} SOL
+  
+  Use the buttons below for more actions.
+      `;
+
+      await ctx.reply(message, {
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+      });
+    } catch (error) {
+      console.error("Error in /menu command:", error);
+      await ctx.reply(
+        "❌ Failed to fetch wallet information. Please try again."
+      );
+    }
+  });
+
   // Handle Callback Query for Listing Chats
   bot.callbackQuery("list_chats", async (ctx: Context) => {
     const userId = ctx.from?.id;
@@ -160,7 +201,7 @@ export function createBot(apiBot: string, monitoredChats: MonitoredChats) {
       .map((chat) => `${chat.name} (ID: ${chat.id})`)
       .join("\n");
     await ctx.reply(`Monitored chats:\n${chatDetails}`);
-    await ctx.answerCallbackQuery(); // Acknowledge the button press
+    await safeAnswerCallbackQuery(ctx);
   });
 
   bot.callbackQuery(/^get_report_(.+)$/, async (ctx: Context) => {
@@ -187,7 +228,7 @@ export function createBot(apiBot: string, monitoredChats: MonitoredChats) {
     `;
 
     await ctx.reply(reportMessage, { parse_mode: "HTML" });
-    await ctx.answerCallbackQuery(); // Acknowledge the button press
+    await safeAnswerCallbackQuery(ctx);
   });
 
   bot.callbackQuery(/^buy_(.+)_(.+)$/, async (ctx: Context) => {
@@ -232,8 +273,170 @@ export function createBot(apiBot: string, monitoredChats: MonitoredChats) {
       await ctx.reply("❌ Failed to complete the swap. Please try again.");
     }
 
-    await ctx.answerCallbackQuery(); // Acknowledge the button press
+    await safeAnswerCallbackQuery(ctx);
+  });
+
+  bot.callbackQuery("get_positions", async (ctx: Context) => {
+    try {
+      // Fetch SOL balance
+      const solBalance = await connection.getBalance(owner.publicKey);
+      const solBalanceInSOL = (solBalance / 10 ** 9).toFixed(4);
+
+      // Fetch all token accounts
+      const tokenAccounts = await connection.getTokenAccountsByOwner(
+        owner.publicKey,
+        { programId: TOKEN_PROGRAM_ID }
+      );
+
+      const positions = [];
+      for (const { pubkey, account } of tokenAccounts.value) {
+        try {
+          // Decode the raw account data
+          const accountInfo = AccountLayout.decode(account.data);
+
+          const mintAddress = new PublicKey(accountInfo.mint).toBase58();
+          //TODO: All tokens have 6 decimals?
+          const amount = Number(accountInfo.amount) / 10 ** 6;
+          const rawAmount = Number(accountInfo.amount);
+
+          const token: TokenPair | null = await fetchToken(mintAddress);
+
+          if (mintAddress !== NATIVE_MINT.toBase58() && amount > 0) {
+            positions.push({ token, mintAddress, amount, rawAmount });
+          }
+        } catch (error) {
+          console.error("Failed to decode account data:", error);
+        }
+      }
+
+      // Construct the message
+      let message = `
+<b>💰 Your Wallet Positions:</b>
+<b>SOL Balance:</b> ${solBalanceInSOL} SOL
+
+<b>Tokens:</b>
+      `;
+
+      const keyboard = new InlineKeyboard();
+
+      positions.forEach((position, index) => {
+        message += `
+<b>${position.token.symbol}</b>
+Balance: ${position.amount.toFixed(4)}
+      `;
+
+        keyboard.text(
+          `Sell All ${position.token.symbol}`,
+          `sell_${position.rawAmount}_${position.mintAddress}`
+        );
+        keyboard.text(
+          `Sell Half`,
+          `sell_${position.rawAmount / 2}_${position.mintAddress}`
+        );
+        keyboard.url("DexScreener", position.token.dexscreener);
+        keyboard.row();
+      });
+
+      // Send the message
+      await ctx.reply(message, {
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+      });
+    } catch (error) {
+      console.error("Error fetching positions:", error);
+      await ctx.reply("❌ Failed to fetch positions. Please try again.");
+    }
+
+    await safeAnswerCallbackQuery(ctx);
+  });
+
+  bot.callbackQuery("wallet", async (ctx: Context) => {
+    try {
+      const solBalance = await connection.getBalance(owner.publicKey);
+      const solBalanceInSOL = (solBalance / 10 ** 9).toFixed(4);
+
+      const keyboard = new InlineKeyboard()
+        .text("View Positions", "get_positions")
+        .url(
+          "View Wallet in Solscan",
+          `https://solscan.io/account/${owner.publicKey.toBase58()}`
+        );
+
+      const message = `
+  <b>💰 Wallet Summary</b>
+  <b>SOL Balance:</b> ${solBalanceInSOL} SOL
+  
+  Use the buttons below for more actions.
+      `;
+
+      await ctx.reply(message, {
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+      });
+    } catch (error) {
+      console.error("Error in /menu command:", error);
+      await ctx.reply(
+        "❌ Failed to fetch wallet information. Please try again."
+      );
+    }
+
+    await safeAnswerCallbackQuery(ctx);
+  });
+
+  bot.callbackQuery(/^sell_(.+)_(.+)$/, async (ctx: Context) => {
+    if (ctx.match === undefined) return;
+    const amount = ctx.match[1];
+    const solanaAddress = ctx.match[2];
+
+    if (!amount || !solanaAddress) {
+      await ctx.reply("Invalid buy request.");
+      await ctx.answerCallbackQuery(); // Acknowledge the button press
+      return;
+    }
+
+    try {
+      const swapAmount = parseFloat(amount); // Convert SOL to lamports (1 SOL = 1e9 lamports)
+
+      // Execute the swap
+      const result = await apiSwap({
+        inputMint: solanaAddress,
+        outputMint: NATIVE_MINT.toBase58(),
+        amount: swapAmount,
+        slippage: 2, // 0.5% slippage
+      });
+
+      if (result?.status !== "success") {
+        let message = `
+<b>❌ ${result.reason}.</b>
+      `;
+
+        await ctx.reply(message, { parse_mode: "HTML" });
+        return;
+      }
+
+      let message = `
+<b>✅ Successfully sold ${amount}!</b>
+<a href="https://solscan.io/tx/${result?.txId}">View on Solscan</a>
+`;
+
+      await ctx.reply(message, { parse_mode: "HTML" });
+    } catch (error) {
+      console.error("Swap error:", error);
+      await ctx.reply("❌ Failed to complete the swap. Please try again.");
+    }
+
+    await safeAnswerCallbackQuery(ctx);
   });
 
   return bot;
+}
+
+async function safeAnswerCallbackQuery(ctx: Context) {
+  try {
+    await ctx.answerCallbackQuery(); // Acknowledge the button press
+  } catch (error) {
+    console.warn(
+      "Warning: Failed to answer callback query. It might be too old."
+    );
+  }
 }

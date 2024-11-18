@@ -25,6 +25,7 @@ export const config = {
 export const owner: Keypair = Keypair.fromSecretKey(
   bs58.decode(config.solanaKey as string)
 );
+
 export const connection = new Connection(config.solanaRpc as string);
 
 export const txVersion = TxVersion.V0;

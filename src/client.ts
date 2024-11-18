@@ -12,8 +12,8 @@ async function getChatName(
   try {
     //TODO: FIX HERE
     const entity = await client.getEntity(chatId);
-    console.log("🚀 « entity:", entity);
-    return "entity.title"; // || "entity.username" || "Unknown";
+    // @ts-ignore
+    return entity.title || entity.username || "Unknown";
   } catch (err) {
     console.error(`Failed to fetch chat name for ID ${chatId}:`, err);
     return "Unknown";
