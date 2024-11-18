@@ -28,10 +28,16 @@ async function handleMessage(
   }
 
   // Fetch token details
-  const token: TokenPair | null = await fetchToken(solanaAddress);
-  if (!token) {
-    await bot.api.sendMessage(userId, "Unable to fetch token details.");
-    return;
+  let token: TokenPair | null;
+  try {
+    token = await fetchToken(solanaAddress);
+    if (!token) {
+      await bot.api.sendMessage(userId, "Unable to fetch token details.");
+      return;
+    }
+  } catch (error) {
+    console.log("🚀 « error:", error);
+    token = null;
   }
 
   // Construct the main message
@@ -40,34 +46,34 @@ async function handleMessage(
 
 <b>Token Information:</b>
   <b>Address:</b> ${solanaAddress}
-  <b>Name:</b> ${token.name || "Unknown"}
-  <b>Symbol:</b> ${token.symbol || "Unknown"}
+  <b>Name:</b> ${token?.name || "Unknown"}
+  <b>Symbol:</b> ${token?.symbol || "Unknown"}
 
 <b>Pricing:</b>
-  <b>Price (USD):</b> $${token.priceUsd || "N/A"}
-  <b>Price (Native):</b> ${token.priceNative || "N/A"} SOL
-  <b>Price Change (h6):</b> ${token.priceChange?.h6 || 0}%
+  <b>Price (USD):</b> $${token?.priceUsd || "N/A"}
+  <b>Price (Native):</b> ${token?.priceNative || "N/A"} SOL
+  <b>Price Change (h6):</b> ${token?.priceChange?.h6 || 0}%
 
 <b>Liquidity & Volume:</b>
-  <b>Liquidity (USD):</b> $${token.liquidity?.usd || "N/A"}
-  <b>Volume (h6):</b> $${token.volume?.h6 || "N/A"}
+  <b>Liquidity (USD):</b> $${token?.liquidity?.usd || "N/A"}
+  <b>Volume (h6):</b> $${token?.volume?.h6 || "N/A"}
 
 <b>Additional Information:</b>
-  <b>Pair Created:</b> ${new Date(token.pairCreatedAt || "").toLocaleString()}
-  <b>Market Cap:</b> $${token.marketCap || "N/A"}
-  <b>FDV:</b> $${token.fdv || "N/A"}
+  <b>Pair Created:</b> ${new Date(token?.pairCreatedAt || "").toLocaleString()}
+  <b>Market Cap:</b> $${token?.marketCap || "N/A"}
+  <b>FDV:</b> $${token?.fdv || "N/A"}
   `;
 
-  if (token.info?.websites) {
-    token.info.websites.forEach((website: { url: string; label: string }) => {
+  if (token?.info?.websites) {
+    token?.info.websites.forEach((website: { url: string; label: string }) => {
       message += `
 <a href="${website.url}">${website.label}</a>
       `;
     });
   }
 
-  if (token.info?.socials) {
-    token.info.socials.forEach((social: { url: string; type: string }) => {
+  if (token?.info?.socials) {
+    token?.info.socials.forEach((social: { url: string; type: string }) => {
       message += `
 <a href="${social.url}">${social.type}</a>
       `;
@@ -77,7 +83,7 @@ async function handleMessage(
   // Add the buttons
   const keyboard = new InlineKeyboard()
     .text("Buy 0.1 SOL", `buy_0.1_${solanaAddress}`)
-    .url("DexScreener", token.dexscreener)
+    .url("DexScreener", token?.dexscreener || "")
     .row()
     .text("Buy 0.3 SOL", `buy_0.3_${solanaAddress}`)
     .url(
@@ -92,10 +98,10 @@ async function handleMessage(
     .text("Positions", `get_positions`);
 
   // Send the main message
-  if (token.info?.openGraph || token.info?.imageUrl) {
+  if (token?.info?.openGraph || token?.info?.imageUrl) {
     await bot.api.sendPhoto(
       userId,
-      token.info?.openGraph || token.info?.imageUrl || null,
+      token?.info?.openGraph || token?.info?.imageUrl || null,
       {
         caption: message,
         parse_mode: "HTML",

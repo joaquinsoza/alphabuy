@@ -9,8 +9,9 @@ import {
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { connection, owner } from "./config";
+import { connection, fetchTokenAccountData, owner } from "./config";
 import { PublicKey } from "@solana/web3.js";
+import { handleMessage } from "./solana";
 
 export interface MonitoredChat {
   id: string;
@@ -278,26 +279,21 @@ export function createBot(apiBot: string, monitoredChats: MonitoredChats) {
 
   bot.callbackQuery("get_positions", async (ctx: Context) => {
     try {
-      // Fetch SOL balance
-      const solBalance = await connection.getBalance(owner.publicKey);
-      const solBalanceInSOL = (solBalance / 10 ** 9).toFixed(4);
-
       // Fetch all token accounts
-      const tokenAccounts = await connection.getTokenAccountsByOwner(
-        owner.publicKey,
-        { programId: TOKEN_PROGRAM_ID }
+      const tokenAccounts = await fetchTokenAccountData();
+      const native = tokenAccounts.tokenAccounts.find(
+        (token) => token.isNative
       );
+      const solBalanceInSOL = (native?.amount / 10 ** 9).toFixed(4);
 
       const positions = [];
-      for (const { pubkey, account } of tokenAccounts.value) {
+      for (const theToken of tokenAccounts.tokenAccounts) {
         try {
-          // Decode the raw account data
-          const accountInfo = AccountLayout.decode(account.data);
-
-          const mintAddress = new PublicKey(accountInfo.mint).toBase58();
+          if (theToken.isNative) continue;
+          const mintAddress = theToken.mint?.toBase58();
           //TODO: All tokens have 6 decimals?
-          const amount = Number(accountInfo.amount) / 10 ** 6;
-          const rawAmount = Number(accountInfo.amount);
+          const amount = Number(theToken.amount) / 10 ** 6;
+          const rawAmount = Number(theToken.amount);
 
           const token: TokenPair | null = await fetchToken(mintAddress);
 
@@ -426,6 +422,29 @@ Balance: ${position.amount.toFixed(4)}
     }
 
     await safeAnswerCallbackQuery(ctx);
+  });
+
+  bot.on("message", async (ctx: Context) => {
+    try {
+      const userId = ctx.from?.id;
+      const text = ctx.message?.text;
+      console.log("🚀 « userId:", userId);
+      console.log("🚀 « text:", text);
+
+      if (!userId || !text) {
+        await ctx.reply("Invalid message.");
+        return;
+      }
+
+      // Create a dummy monitoredChat object for direct messages
+      const monitoredChat = { name: "Direct Chat" };
+
+      // Pass the message to handleMessage
+      await handleMessage(bot, text, userId, monitoredChat);
+    } catch (error) {
+      console.error("Error handling direct message:", error);
+      await ctx.reply("❌ An error occurred while processing your message.");
+    }
   });
 
   return bot;

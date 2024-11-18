@@ -54,12 +54,13 @@ export async function fetchReport(address: string): Promise<Report> {
 }
 
 export async function fetchToken(address: string): Promise<TokenPair> {
+  console.log("🚀 « address:", address);
   const url = `https://api.dexscreener.com/latest/dex/tokens/${address}`;
   const response = await axios.get(url);
 
-  const raydiumPairs = response.data.pairs.filter(
-    (pair: any) => pair.dexId === "raydium"
-  );
+  const raydiumPairs = response.data.pairs
+    ? response.data.pairs.filter((pair: any) => pair.dexId === "raydium")
+    : [];
 
   const raydiumSolPair = raydiumPairs.find(
     (pair: any) => pair.quoteToken.address === NATIVE_MINT.toBase58()
