@@ -31,7 +31,12 @@ async function handleMessage(
     const tokenInfo = await connection.getParsedAccountInfo(
       new PublicKey(solanaAddress)
     );
-    if (!tokenInfo.value) {
+    if (
+      !tokenInfo.value ||
+      typeof tokenInfo.value.data !== "object" ||
+      !("program" in tokenInfo.value.data) ||
+      tokenInfo.value.data.program !== "spl-token"
+    ) {
       return;
     }
   } catch (error) {
