@@ -53,9 +53,13 @@ export async function fetchReport(address: string): Promise<Report> {
   };
 }
 
-export async function fetchToken(address: string): Promise<TokenPair> {
+export async function fetchToken(address: string): Promise<TokenPair | null> {
   const url = `https://api.dexscreener.com/latest/dex/tokens/${address}`;
   const response = await axios.get(url);
+
+  if (response.data.pairs === null) {
+    return null;
+  }
 
   const raydiumPairs = response.data.pairs
     ? response.data.pairs.filter((pair: any) => pair.dexId === "raydium")
