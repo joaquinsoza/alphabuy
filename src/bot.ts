@@ -428,8 +428,6 @@ Balance: ${position.amount.toFixed(4)}
     try {
       const userId = ctx.from?.id;
       const text = ctx.message?.text;
-      console.log("🚀 « userId:", userId);
-      console.log("🚀 « text:", text);
 
       if (!userId || !text) {
         await ctx.reply("Invalid message.");

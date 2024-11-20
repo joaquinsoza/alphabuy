@@ -1,5 +1,7 @@
 import { InlineKeyboard } from "grammy";
 import { fetchToken, TokenPair } from "./utils";
+import { connection, owner } from "./config";
+import { PublicKey } from "@solana/web3.js";
 
 // Base58 regex for Solana token addresses (44 characters, valid base58 chars)
 const SOLANA_ADDRESS_REGEX = /\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/;
@@ -21,9 +23,18 @@ async function handleMessage(
   monitoredChat: { name: string }
 ): Promise<void> {
   const solanaAddress = extractSolanaAddress(text);
-
-  // If no address is found, ignore the message
   if (!solanaAddress) {
+    return;
+  }
+
+  try {
+    const tokenInfo = await connection.getParsedAccountInfo(
+      new PublicKey(solanaAddress)
+    );
+    if (!tokenInfo.value) {
+      return;
+    }
+  } catch (error) {
     return;
   }
 

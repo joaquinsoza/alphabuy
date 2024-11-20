@@ -54,7 +54,6 @@ export async function fetchReport(address: string): Promise<Report> {
 }
 
 export async function fetchToken(address: string): Promise<TokenPair> {
-  console.log("🚀 « address:", address);
   const url = `https://api.dexscreener.com/latest/dex/tokens/${address}`;
   const response = await axios.get(url);
 
