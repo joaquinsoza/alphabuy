@@ -317,19 +317,19 @@ export function createBot(apiBot: string, monitoredChats: MonitoredChats) {
 
       positions.forEach((position, index) => {
         message += `
-<b>${position.token.symbol}</b>
+<b>${position.token?.symbol}</b>
 Balance: ${position.amount.toFixed(4)}
       `;
 
         keyboard.text(
-          `Sell All ${position.token.symbol}`,
+          `Sell All ${position.token?.symbol}`,
           `sell_${position.rawAmount}_${position.mintAddress}`
         );
         keyboard.text(
           `Sell Half`,
           `sell_${Math.floor(position.rawAmount / 2)}_${position.mintAddress}`
         );
-        keyboard.url("DexScreener", position.token.dexscreener);
+        keyboard.url("DexScreener", position.token?.dexscreener ?? "");
         keyboard.row();
       });
 
