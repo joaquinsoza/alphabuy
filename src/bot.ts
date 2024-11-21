@@ -251,7 +251,7 @@ export function createBot(apiBot: string, monitoredChats: MonitoredChats) {
         inputMint: NATIVE_MINT.toBase58(), // Native SOL mint
         outputMint: solanaAddress,
         amount: swapAmount,
-        slippage: 25, // 0.5% slippage
+        slippage: 8, // 0.5% slippage
       });
 
       if (result?.status !== "success") {
@@ -398,7 +398,7 @@ Balance: ${position.amount.toFixed(4)}
         inputMint: solanaAddress,
         outputMint: NATIVE_MINT.toBase58(),
         amount: swapAmount,
-        slippage: 10, // 0.5% slippage
+        slippage: 8, // 0.5% slippage
       });
 
       if (result?.status !== "success") {
